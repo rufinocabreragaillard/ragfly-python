@@ -25,7 +25,7 @@ class RAGfly:
 
         from ragfly import RAGfly
 
-        client = RAGfly(api_key="rfly_...")
+        client = RAGfly(api_key="slm_live_...")
         resp = client.ask("¿Cuáles son las ventas de Q1?")
         print(resp.answer)
 

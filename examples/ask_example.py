@@ -1,7 +1,7 @@
 """Ejemplo básico del SDK de RAGfly."""
 from ragfly import RAGfly
 
-client = RAGfly(api_key="rfly_tu_api_key")
+client = RAGfly(api_key="slm_live_tu_api_key")
 
 # Pregunta simple (respuesta completa)
 resp = client.ask("¿Cuáles son las ventas del Q1?")
@@ -19,4 +19,4 @@ print(f"\n{results.total_documentos} documentos encontrados")
 for doc in results.documents:
     print(f"  · {doc.nombre} (score: {doc.rrf_score:.3f})")
     for chunk in doc.chunks[:1]:
-        print(f"      "{chunk.texto[:120]}…"")
+        print(f'      "{chunk.texto[:120]}…"')

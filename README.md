@@ -2,6 +2,8 @@
 
 Official Python client for [RAGfly](https://ragfly.ai) — retrieval infrastructure for your AI agents.
 
+> Using TypeScript/JavaScript? See the [TypeScript SDK](https://github.com/rufinocabreragaillard/ragfly-typescript) (`npm install @ragfly/sdk`) — same surface.
+
 ## Install
 
 ```bash
@@ -13,7 +15,7 @@ pip install ragfly
 ```python
 from ragfly import RAGfly
 
-client = RAGfly(api_key="rfly_...")
+client = RAGfly(api_key="slm_live_...")
 
 # Ask a question (RAG end-to-end)
 resp = client.ask("What are the Q1 sales figures?")
