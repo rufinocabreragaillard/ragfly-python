@@ -10,6 +10,8 @@ from .models import AskChunk, AskResponse, Chunk, Document, SearchResult
 
 DEFAULT_BASE_URL = "https://api.ragfly.ai"
 _TIMEOUT = httpx.Timeout(60.0, connect=10.0)
+#: Función de interfaz por defecto para ``ask()`` (define el modelo LLM de la conversación).
+DEFAULT_FUNCION = "CHAT-USUARIO"
 
 
 class RAGflyError(Exception):
@@ -62,14 +64,14 @@ class RAGfly:
                 detail = resp.text
             raise RAGflyError(detail, status_code=resp.status_code)
 
-    def _get_or_create_conversation(self) -> int:
-        """Crea una conversación temporal y devuelve su id."""
+    def _get_or_create_conversation(self, codigo_funcion: str = DEFAULT_FUNCION) -> int:
+        """Crea una conversación nueva y devuelve su id."""
         resp = self._http.post(self._url("/interfaz/conversaciones"), json={
             "titulo": "SDK",
-            "temporal": True,
+            "codigo_funcion": codigo_funcion,
         })
         self._raise_for_status(resp)
-        return resp.json()["id"]
+        return resp.json()["id_conversacion"]
 
     # ── API pública ──────────────────────────────────────────────────────────
 
@@ -136,19 +138,23 @@ class RAGfly:
         question: str,
         *,
         conversation_id: Optional[int] = None,
+        codigo_funcion: str = DEFAULT_FUNCION,
         stream: bool = False,
     ) -> Union[AskResponse, Iterator[AskChunk]]:
         """Pregunta al RAG con respuesta completa o streaming.
 
         Args:
             question: La pregunta en lenguaje natural.
-            conversation_id: Reusar conversación existente. Si es None, crea una temporal.
+            conversation_id: Reusar conversación existente. Si es None, crea una nueva.
+            codigo_funcion: Función de interfaz que define el modelo LLM al crear una
+                conversación nueva. Default ``CHAT-USUARIO``. Ignorado si se pasa
+                ``conversation_id``.
             stream: Si True, devuelve un iterador de :class:`AskChunk`.
 
         Returns:
             :class:`AskResponse` (stream=False) o ``Iterator[AskChunk]`` (stream=True).
         """
-        conv_id = conversation_id or self._get_or_create_conversation()
+        conv_id = conversation_id or self._get_or_create_conversation(codigo_funcion)
 
         if stream:
             return self._ask_stream(question, conv_id)
@@ -156,7 +162,14 @@ class RAGfly:
 
     def _ask_stream(self, question: str, conv_id: int) -> Iterator[AskChunk]:
         url = self._url(f"/interfaz/conversaciones/{conv_id}/mensajes/stream")
-        with self._http.stream("POST", url, json={"contenido": question}) as resp:
+        # En streaming NO aplicamos read-timeout: la generación del LLM puede tardar
+        # más que el timeout normal entre tokens, y abortaría el SSE a mitad de
+        # respuesta (httpx.ReadTimeout). Mantenemos solo el connect-timeout. Espejo
+        # del SDK TS, que cancela su timer al recibir los headers de respuesta.
+        with self._http.stream(
+            "POST", url, json={"contenido": question},
+            timeout=httpx.Timeout(None, connect=10.0),
+        ) as resp:
             self._raise_for_status(resp)
             for line in resp.iter_lines():
                 if not line.startswith("data: "):
