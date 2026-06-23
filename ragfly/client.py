@@ -110,8 +110,9 @@ class RAGfly:
                     texto=c.get("texto", ""),
                     similitud=c.get("similitud"),
                     score_rerank=c.get("score_rerank"),
-                    pagina=c.get("pagina"),
-                    extra={k: v for k, v in c.items() if k not in {"texto", "similitud", "score_rerank", "pagina"}},
+                    # La API expone el nº de página como `nro_pagina` (no `pagina`).
+                    pagina=c.get("nro_pagina"),
+                    extra={k: v for k, v in c.items() if k not in {"texto", "similitud", "score_rerank", "nro_pagina"}},
                 )
                 for c in d.get("chunks", [])
             ]
@@ -206,9 +207,12 @@ class RAGfly:
         estado: Optional[str] = None,
     ) -> dict:
         """Lista documentos del corpus con paginación."""
-        params: dict = {"pagina": page, "limite": page_size}
+        # El backend (GET /documentos/paginado) espera page/limit/codigo_estado_doc.
+        # FastAPI ignora params desconocidos, así que pagina/limite/estado se
+        # traducían en "sin filtro, 50 por defecto".
+        params: dict = {"page": page, "limit": page_size}
         if estado:
-            params["estado"] = estado
+            params["codigo_estado_doc"] = estado
         resp = self._http.get(self._url("/documentos/paginado"), params=params)
         self._raise_for_status(resp)
         return resp.json()
