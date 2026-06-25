@@ -172,6 +172,7 @@ class RAGfly:
             timeout=httpx.Timeout(None, connect=10.0),
         ) as resp:
             self._raise_for_status(resp)
+            recibio_done = False
             for line in resp.iter_lines():
                 if not line.startswith("data: "):
                     continue
@@ -182,9 +183,18 @@ class RAGfly:
                 if "error" in payload:
                     raise RAGflyError(payload["error"])
                 if payload.get("done"):
+                    recibio_done = True
                     return
                 if "text" in payload:
                     yield AskChunk(delta=payload["text"])
+            # El stream cerró sin el evento `done` final: respuesta truncada
+            # (corte de red, timeout del proxy). No devolver una respuesta
+            # parcial como si fuera completa — propagar como error.
+            if not recibio_done:
+                raise RAGflyError(
+                    "El stream de respuesta se cortó antes de terminar "
+                    "(sin evento 'done'); la respuesta puede estar incompleta."
+                )
 
     def _ask_sync(self, question: str, conv_id: int) -> AskResponse:
         buffer = []
